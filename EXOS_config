@@ -1,0 +1,34 @@
+#Script connects to multiple network devices, and puts config which is in some txt file
+
+import paramiko
+import time
+from pykeepass import PyKeePass
+import stdiomask
+
+
+#Access to KeePass
+DBpassword = stdiomask.getpass("Your DB password: ")
+kp = PyKeePass('URL for Keepass', password=DBpassword)
+entry = kp.find_entries_by_title(title='title', first='True')
+
+#Parameters to connect to switch/router etc. 
+ip_3oct = input("Switch 1st three octets of IP address: ")
+a = int(input("Switch 4rd octect start: "))
+b = int(input("Switch 4rd octect end: "))
+
+
+#Instruction; connect to network device and puts config
+for x in range(a, b):
+    ssh_client = paramiko.SSHClient()
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh_client.connect(hostname=ip_3oct+str(x),username=entry.username,password=entry.password)
+    remote_connection = ssh_client.invoke_shell()
+    f = open("your txt config file")
+    for line in f:
+        remote_connection.send(line+'\n')
+    time.sleep(3)
+
+
+time.sleep(10)
+f.close()
+remote_connection.close
