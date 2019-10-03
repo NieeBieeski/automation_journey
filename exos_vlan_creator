@@ -1,0 +1,44 @@
+#This python script connect to Your switch an creates as many vlans as You want. 
+#I want to itarate this script. In future it will can connect to multiple switches and creates VLAN
+
+import paramiko
+import time
+from pykeepass import PyKeePass
+import stdiomask
+#Access to KeePass
+DBpassword = stdiomask.getpass("Your DB password: ")
+
+kp = PyKeePass('URL to keepass', password=DBpassword)
+entry = kp.find_entries_by_title(title='title', first='True')
+ip_address = input("Switch IP address: ")
+
+#Established SSH connection via paramiko
+ssh_client = paramiko.SSHClient()
+ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+ssh_client.connect(hostname=ip_address,username=entry.username,password=entry.password)
+remote_connection = ssh_client.invoke_shell()
+
+#VLAN L2 creation
+VLAN_count = int(input("How many vlan do You want to create? "))
+i = 0
+i < VLAN_count
+#Loop for L2 vlan creation:
+
+for i in range(0, VLAN_count):
+                vname = input("VLAN name: ")
+                vtag = input("VLAN tag: ")
+                remote_connection.send('create vlan ' + vname + ' tag ' + vtag +'\n')
+                remote_connection.send('configure '+vname + ' add ports 1:51 tagged\n')
+                time.sleep(0.5)
+                remote_connection.send('enable stdp s0 auto-bind vlan '+vname + '\n')
+                remote_connection.send('configure trusted-port 1:51 trust-for dhcp-server\n')
+                remote_connection.send('enable ip-security dhcp-snooping vlan ' + vname + ' ports all violation-action drop-packet snmp-trap\n')
+                time.sleep(0.5)
+                remote_connection.send('enable ip-security dhcp-snooping vlan ' + vname + ' ports 1:51 violation-action none\n')
+                i+= 1
+
+
+
+time.sleep(10)
+
+remote_connection.close
