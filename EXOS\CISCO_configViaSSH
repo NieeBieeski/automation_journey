@@ -1,34 +1,49 @@
 #Script connects to multiple network devices, and puts config which is in some txt file
+#08.10.2019, improved script. Now IP addresses are in separate .txt file
+#08.10.2019, added some exceptions
 
-import paramiko
-import time
+from netmiko import ConnectHandler
+from netmiko import ssh_exception, NetMikoTimeoutException
 from pykeepass import PyKeePass
 import stdiomask
 
 
-#Access to KeePass
+#username and password from KeePass
 DBpassword = stdiomask.getpass("Your DB password: ")
-kp = PyKeePass('URL for Keepass', password=DBpassword)
-entry = kp.find_entries_by_title(title='title', first='True')
+kp = PyKeePass('URL_to_keepass', password=DBpassword)
+entry = kp.find_entries_by_title(title='superadmin', first='True')
 
-#Parameters to connect to switch/router etc. 
-ip_3oct = input("Switch 1st three octets of IP address: ")
-a = int(input("Switch 4rd octect start: "))
-b = int(input("Switch 4rd octect end: "))
+#opens files; with list of IP addresses to sw and with config
+with open ('switch_list.txt') as x:
+    sw_list = x.read().splitlines()
+
+with open ('config_file.txt') as f:
+    command_list = f.read().splitlines()
+
+#established connection to switch
+for device in sw_list:
+    print ('Connecting to: ' + device +'\n')
+    ip_address = device
+    exos = {
+        'device_type': 'extreme',
+        'ip': ip_address,
+        'username': entry.username,
+        'password': entry.password,
+}
+
+#exceptions for diffrent errors
+    try:
+        net_connect = ConnectHandler(**exos)
+        output = net_connect.send_config_set(command_list)
+        print('Success! ' +device)
+        output = net_connect.save_config('save config')
+    except(ssh_exception.NetMikoTimeoutException):
+        print('Timeout! ' + device)
+        continue
+    except(ssh_exception.NetMikoAuthenticationException):
+        print('Wrong password!')
+    finally:
+        f.close()
+        x.close()
 
 
-#Instruction; connect to network device and puts config
-for x in range(a, b):
-    ssh_client = paramiko.SSHClient()
-    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh_client.connect(hostname=ip_3oct+str(x),username=entry.username,password=entry.password)
-    remote_connection = ssh_client.invoke_shell()
-    f = open("your txt config file")
-    for line in f:
-        remote_connection.send(line+'\n')
-    time.sleep(3)
-
-
-time.sleep(10)
-f.close()
-remote_connection.close
